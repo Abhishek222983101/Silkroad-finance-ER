@@ -1,84 +1,257 @@
-# SilkRoad Finance - Ephemeral Rollups Edition
+# SilkRoad Finance
 
-## Project Description & Ephemeral Rollup Usage
-SilkRoad Finance is an institutional-grade, stateless Real World Asset (RWA) privacy layer on Solana that allows SMEs to tokenize and factor their invoices. In this upgrade, we leverage **MagicBlock's Private Ephemeral Rollups (PER/TEE)** to process high-frequency lending actions—like matching buyers to invoices, micro-repayments, and real-time yield accrual—in a completely gasless, sub-50ms environment. More importantly, using TEE-enabled Ephemeral Rollups ensures that sensitive financial positions and corporate supplier relationships remain strictly confidential. Opponents/Competitors cannot see your state.
+**Institutional-Grade Stateless RWA Privacy Layer on Solana via Ephemeral Rollups & MagicBlock**
 
-## Any notes for us?
-**Yes! We solved the "trust problem" that Jason and I chatted about.** By utilizing Private Ephemeral Rollups (PER/TEE) for state management, lenders and SMEs can interact without publicly exposing the terms of their agreements or their internal financial health. The TEE validator ensures that states (like an SME's debt position or a lender's available liquidity) are only readable by authorized parties, completely mitigating the risk of competitive front-running or corporate espionage while maintaining verifiable trust on-chain.
+![SilkRoad Architecture](https://raw.githubusercontent.com/Abhishek222983101/silkroad-finance-zk/main/public/arch.png)
 
----
-
-## 🎯 Winning the $700 Best Privacy Build
-We are targeting the $700 first prize for the best privacy build. This requires the use of **Private Ephemeral Rollups (PER/TEE)**.
-
-### Why PER/TEE is Critical for SilkRoad Finance
-| Feature | Regular ER | Private ER (TEE) |
-|---------|-----------|------------------|
-| Speed | Sub-50ms | Sub-50ms |
-| Gasless | ✅ | ✅ |
-| Privacy | ❌ Competitors see your debt/liquidity | ✅ Competitors CANNOT see your state |
-| Prize Eligibility | $400, $300 prizes | **$700 first prize** |
-| Validator | `MUS3hc9TCw4cGC12vHNoYcCGzJG1txjgQLZWVoeNHNd` | `FnE6VJT5QNZdedZPnCoLsARgBwoE6DeJNjBs2H1gySXA` |
-| Endpoint | `https://devnet-us.magicblock.app/` | `https://tee.magicblock.app/` |
-| Auth Required | ❌ | ✅ Need to sign message for token |
+| | |
+|---|---|
+| **Live Demo** | [silkroadfi.vercel.app](https://silkroadfi.vercel.app/) |
+| **Program ID** | `C1gro7yAZrKGp1B13wehgQhvMSTx7UxGt8MWc8ozPB4d` |
+| **Network** | Solana Devnet (MagicBlock Ephemeral Rollup) |
+| **Tracks** | MagicBlock (Ephemeral Rollups) |
 
 ---
 
-## 🔧 Technical Architecture (PER-Focused)
+## Problem Statement
 
-Our architecture delegates the matching and execution of invoice factoring to a Private Ephemeral Rollup.
+SMEs globally have $2.5T locked in unpaid invoices. The average payment cycle is 60 to 90 days. Traditional factoring is slow (T+2 to T+7 settlement), expensive (3 to 5% fees), and requires extensive paperwork.
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────────────┐  │
-│  │ Supplier    │  │ Investor    │  │         Factoring Marketplace       │  │
-│  │ Dashboard   │  │ Dashboard   │  │  (Real-time matching, Hidden State) │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        MAGICBLOCK TEE LAYER                                 │
-│                                                                             │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                    PRIVATE EPHEMERAL ROLLUP (PER)                     │  │
-│  │                                                                       │  │
-│  │   SME State               Deal State            Investor State       │  │
-│  │   ┌─────────────┐         ┌─────────────┐       ┌─────────────┐      │  │
-│  │   │ risk_score  │         │ amount      │       │ liquidity   │      │  │
-│  │   │ invoices    │  ←──►   │ yield       │  ←──► │ portfolio   │      │  │
-│  │   │ repayment   │         │ status      │       │ yield_gen   │      │  │
-│  │   └─────────────┘         └─────────────┘       └─────────────┘      │  │
-│  │         ↑                                                ↑           │  │
-│  │         │         🔒 PRIVACY ENFORCED 🔒                 │           │  │
-│  │    SME CANNOT read Investor's total liquidity            │           │  │
-│  │    Investor CANNOT read SME's total debt outside deal    │           │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-│  Endpoint: https://tee.magicblock.app/?token=${authToken}                  │
-│  Validator: FnE6VJT5QNZdedZPnCoLsARgBwoE6DeJNjBs2H1gySXA                   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼ (Commit & Undelegate on Settlement)
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           SOLANA L1 (Devnet)                                │
-│                                                                             │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐            │
-│  │ Invoice Minted  │  │ Final Transfer  │  │ ZK Compression  │            │
-│  │ (Light Protocol)│  │ (Committed)     │  │ (State Hash)    │            │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘            │
-└─────────────────────────────────────────────────────────────────────────────┘
+Public blockchains solve speed but create two massive problems for institutional adoption:
+1. **The Transparency Paradox:** Corporate suppliers cannot expose deal sizes, client names, and profit margins on a public ledger. 
+2. **The Trust Deficit:** How can anonymous DeFi lenders trust that an SME's invoice is real and not double-financed, without relying on slow, manual centralized audits?
+
+---
+
+## Solution
+
+SilkRoad Finance enables suppliers to tokenize invoices as private, high-speed state on Solana using **MagicBlock Ephemeral Rollups (ER)**. Business data stays hidden while financial proofs remain valid for on-chain settlement, and lenders are protected by AI-driven verification.
+
+| Feature | Implementation |
+|---|---|
+| Privacy & Scale | MagicBlock Ephemeral Rollups |
+| Speed | Sub-ms execution inside the ER |
+| Trust & Fraud | AI-powered (Gemini) deep-fake and risk analysis |
+| Settlement | Atomic settlement to Solana L1 upon rollup teardown |
+
+---
+
+## Solving the Trust Deficit
+
+The biggest hurdle in DeFi lending to SMEs is **Trust**. Why should a lender risk capital on a PDF invoice?
+
+SilkRoad solves this *before* the invoice ever touches the blockchain:
+
+1. **AI Fraud Detection:** Every uploaded invoice is parsed by Gemini AI. The system analyzes the document for pixel manipulation, metadata inconsistencies, and cross-references addresses and company registries.
+2. **Algorithmic Risk Scoring:** Based on the AI analysis, payment history, and debtor reputation, an objective Risk Score (A/B/C) is assigned.
+3. **Immutable Anchoring:** The verified invoice and its risk score are pinned to IPFS, and the hash is minted into the ER. 
+
+**For the Lender:** They don't need to trust the SME. They trust the immutable Risk Score generated by the protocol's AI audit layer. They browse a marketplace of standardized risk (e.g., "Class A Yield: 8% APY") rather than raw, unverified documents.
+
+---
+
+## Sponsor Integration
+
+### MagicBlock (Ephemeral Rollups Track)
+
+We use MagicBlock's Ephemeral Rollups to solve the privacy and scalability constraints of institutional RWA tokenization.
+
+**How we implemented Ephemeral Rollups:**
+
+1. **Invoice State Delegation:** When a supplier uploads an invoice, the state (metadata, borrower, amount) is immediately delegated to a MagicBlock Ephemeral Rollup.
+2. **Private Orderbook Execution:** Inside the ER, the matching engine runs at sub-millisecond speeds. Because the ER operates off the main L1, competitors cannot scrape the public mempool to front-run or analyze supplier-client relationships during the active funding period.
+3. **High-Frequency Bidding:** Lenders can place micro-bids on fractionalized invoices without paying L1 gas fees for every bid adjustment.
+4. **L1 Settlement:** Once an invoice is fully funded, the ER state is committed back to the Solana L1. Only the final settlement (the transfer of funds and ownership) is recorded on the public ledger, preserving the privacy of the bidding process and rejected terms.
+
+**What this achieves:**
+The public ledger only shows the final, verified settlement. The entire negotiation, the specific risk parameters discussed, and the identities of the competing lenders remain hidden within the ephemeral lifecycle of the rollup.
+
+---
+
+## 📹 Demo & Walkthrough
+
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=5LfyOQW3sJ8">
+    <img src="https://img.youtube.com/vi/5LfyOQW3sJ8/0.jpg" alt="Watch the Demo" width="100%">
+  </a>
+  <p><em>Click the banner above to watch the 4-minute technical deep dive.</em></p>
+</div>
+
+---
+
+## Technical Architecture
+
+### System Overview
+
+```
++------------------+     +-------------------+     +------------------+
+|                  |     |                   |     |                  |
+|   PDF Invoice    +---->+   Gemini AI       +---->+   Risk Score     |
+|   Upload         |     |   Fraud Detection |     |   Assignment     |
+|                  |     |                   |     |                  |
++------------------+     +-------------------+     +--------+---------+
+                                                           |
+                                                           v
++------------------+     +-------------------+     +--------+---------+
+|                  |     |                   |     |                  |
+|   Helius RPC     +<----+   Light Protocol  +<----+   Shielded Mint  |
+|   Proof Fetch    |     |   State Tree      |     |   (CPI Call)     |
+|                  |     |                   |     |                  |
++--------+---------+     +-------------------+     +------------------+
+         |
+         v
++--------+---------+     +-------------------+
+|                  |     |                   |
+|   Marketplace    +---->+   Atomic Settle   |
+|   (Risk/Yield)   |     |   (SOL Transfer)  |
+|                  |     |                   |
++------------------+     +-------------------+
 ```
 
-## 🎮 Deal Flow (PER-Optimized)
+### On-Chain Program Logic
 
-1. **Connect & Auth:** Supplier and Investor connect wallets and get an Auth Token from `tee.magicblock.app`.
-2. **State Delegation:** When an invoice is listed, the state is delegated from Solana L1 to the MagicBlock TEE validator.
-3. **Privacy Permissions:** Using `create_player_permission` (adapted for businesses), only the specific Supplier and Investor involved in a deal can read the terms.
-4. **Gasless Matching:** The Investor reviews the risk score (generated via Gemini AI) and funds the invoice inside the TEE instantly and without gas fees.
-5. **Settlement & Undelegation:** Once the real-world fiat repayment clears (via Oracle/Admin trigger), the TEE state commits back to Solana L1, executing the final SOL transfer atomically and undelegating the accounts.
+The Anchor program (`programs/silkroad/src/lib.rs`) handles two core operations:
 
-## Core Mandates Delivered
-- **Stateless & Private:** Utilizing ZK Compression (Light Protocol) + MagicBlock TEE ensures no data leakage.
-- **Solving the Trust Problem:** Lenders trust the AI risk score and the ZK proofs, while SMEs trust that their corporate relationships are hidden in the TEE layer.
+**1. List Invoice**
+```rust
+pub fn list_invoice(
+    ctx: Context<ListInvoice>, 
+    amount_in_sol: u64, 
+    borrower_name: String
+) -> Result<()>
+```
+Creates a new invoice account (PDA) storing supplier pubkey, price, borrower name, and sale status.
+
+**2. Buy Invoice**
+```rust
+pub fn buy_invoice(ctx: Context<BuyInvoice>) -> Result<()>
+```
+Executes an atomic transfer: SOL moves from investor to supplier in the same transaction that marks the invoice as sold. Uses CPI to the System Program for the actual transfer.
+
+**State Schema:**
+```rust
+pub struct InvoiceState {
+    pub supplier: Pubkey,      // 32 bytes
+    pub price: u64,            // 8 bytes
+    pub borrower_name: String, // 50 bytes
+    pub is_sold: bool,         // 1 byte
+    pub new_owner: Pubkey,     // 32 bytes
+}
+```
+
+---
+
+## Workflow
+
+### Phase 1: Ingestion
+
+1. Supplier uploads PDF invoice
+2. Gemini AI parses the document
+3. Fraud detection runs (pixel manipulation, address verification)
+4. Risk score is assigned (A/B/C rating)
+5. Metadata object is created for minting
+
+### Phase 2: Shielded Minting
+
+1. Frontend calls `list_invoice` on our Anchor program
+2. Program creates invoice PDA with metadata
+3. CPI to Light System Program hashes and compresses the state
+4. Merkle leaf is added to the state tree
+5. Document is anchored to IPFS via Pinata
+
+### Phase 3: Marketplace
+
+1. Investors browse available invoices
+2. Only risk score and yield are visible (not supplier/debtor names)
+3. Investor selects invoice and clicks "Fund"
+4. `buy_invoice` executes atomic settlement
+5. SOL transfers to supplier, ownership updates in Merkle tree
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Scaling/Privacy | MagicBlock ER | Ephemeral Rollups for high-speed, private state |
+| Smart Contract | Anchor (Rust) | Invoice lifecycle management |
+| AI Audit | Gemini | Document parsing, fraud detection |
+| Storage | Pinata (IPFS) | Immutable document anchoring |
+| Frontend | Next.js 16 | TypeScript, Tailwind, Framer Motion |
+| Wallets | Solana Wallet Adapter | Phantom, Solflare support |
+
+---
+
+## Local Development
+
+**Prerequisites:** Rust, Solana CLI, Anchor CLI, Node.js, Yarn
+
+```bash
+# Clone repository
+git clone https://github.com/Abhishek222983101/silkroad-finance-privacy.git
+cd silkroad-finance-privacy
+
+# Install dependencies
+yarn install
+
+# Build Anchor program
+anchor build
+
+# Run tests
+anchor test
+
+# Start frontend (from web directory)
+cd web && yarn dev
+```
+
+**Environment:**
+```bash
+# Set cluster to devnet
+solana config set --url devnet
+
+# Ensure wallet has devnet SOL
+solana airdrop 2
+```
+
+---
+
+## Roadmap
+
+### Q3 2026: Selective Disclosure
+
+Implementing "Audit Keys" through Light Protocol. Businesses keep data private from competitors while granting view-only access to tax authorities or auditors via ZK-proofs. This enables regulatory compliance without sacrificing commercial privacy.
+
+### Q4 2026: Fiat Oracles
+
+Integrating Plaid/Stripe sandbox APIs to bridge off-chain bank wires with on-chain state. When a real-world payment clears, the corresponding on-chain invoice burns automatically.
+
+---
+
+## Security Notes
+
+1. All SOL transfers use BigInt precision (lamports) to prevent rounding errors
+2. Invoice double-spend is prevented by `is_sold` flag checked before settlement
+3. Supplier address validation uses `UncheckedAccount` since we only write to it
+4. Compressed state cannot be tampered with without invalidating Merkle proofs
+
+---
+
+## Repository Structure
+
+```
+silkroad-finance-privacy/
+  Anchor.toml           # Program deployment config
+  Cargo.toml            # Rust workspace
+  programs/
+    silkroad/
+      src/
+        lib.rs          # Core Anchor program
+      Cargo.toml        # Program dependencies
+  web/                  # Next.js frontend
+```
+
+---
+
+Built for **Solana Hackathon 2026 (MagicBlock Track)**
+
+Transforming illiquid debt into high-speed, private capital via Ephemeral Rollups.
